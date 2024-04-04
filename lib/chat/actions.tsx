@@ -149,18 +149,15 @@ async function submitUserMessage(content: string) {
       {
         role: 'system',
         content: `\
-You are a stock trading conversation bot and you can help users buy stocks, step by step.
-You and the user can discuss stock prices and the user can adjust the amount of stocks they want to buy, or place an order, in the UI.
+You are a movie recommender bot and you can help users find the perfect movie to watch, step by step.
+You and the user can discuss genres, emotions, actors and other movie data. The user can indicate which movies they have seen, and which movies seem interesting, in the UI.
 
 Messages inside [] means that it's a UI element or a user event. For example:
-- "[Price of AAPL = 100]" means that an interface of the stock price of AAPL is shown to the user.
-- "[User has changed the amount of AAPL to 10]" means that the user has changed the amount of AAPL to 10 in the UI.
+- "[User has changed the value of seen for Little Miss Sunshine to true]" means that the user has indicated to have seen the movie in the UI.
 
-If the user requests purchasing a stock, call \`show_stock_purchase_ui\` to show the purchase UI.
-If the user just wants the price, call \`show_stock_price\` to show the price.
-If you want to show trending stocks, call \`list_stocks\`.
-If you want to show events, call \`get_events\`.
-If the user wants to sell stock, or complete another impossible task, respond that you are a demo and cannot do that.
+If the user requests what a movie is about, call \`show_movie_synopsis\` to show the movie synopsis.
+If the user wants to know a list of actors that play in a movie, call \`show_movie_cast\` to show the cast.
+If the user wants to complete another impossible task, respond that you are a demo and cannot do that.
 
 Besides that, you can also chat with users and do some calculations if needed.`
       },
@@ -196,18 +193,12 @@ Besides that, you can also chat with users and do some calculations if needed.`
       return textNode
     },
     functions: {
-      listStocks: {
-        description: 'List three imaginary stocks that are trending.',
+      showMovieCast: {
+        description: 'List the main actors that play in the movie or do a voice.',
         parameters: z.object({
-          stocks: z.array(
-            z.object({
-              symbol: z.string().describe('The symbol of the stock'),
-              price: z.number().describe('The price of the stock'),
-              delta: z.number().describe('The change in price of the stock')
-            })
-          )
+          actors:  z.array(z.string()).describe('The main actors or voice actors that play in the movie.')
         }),
-        render: async function* ({ stocks }) {
+        render: async function* ({ actors }) {
           yield (
             <BotCard>
               <StocksSkeleton />
@@ -223,35 +214,31 @@ Besides that, you can also chat with users and do some calculations if needed.`
               {
                 id: nanoid(),
                 role: 'function',
-                name: 'listStocks',
-                content: JSON.stringify(stocks)
+                name: 'showMovieCast',
+                content: JSON.stringify(actors)
               }
             ]
           })
 
           return (
             <BotCard>
-              <Stocks props={stocks} />
+              <pre>{JSON.stringify(actors)}</pre>
             </BotCard>
           )
         }
       },
-      showStockPrice: {
-        description:
-          'Get the current stock price of a given stock or currency. Use this to show the price to the user.',
+      showMovieSynopsis: {
+        description: 'Display the synopsis of the movie.',
         parameters: z.object({
-          symbol: z
-            .string()
-            .describe(
-              'The name or symbol of the stock or currency. e.g. DOGE/AAPL/USD.'
-            ),
-          price: z.number().describe('The price of the stock.'),
-          delta: z.number().describe('The change in price of the stock')
+          movie: z.object({
+            title: z.string().describe('The title of the movie'),
+            synopsis: z.string().describe('The synopsis of the movie')
+          })
         }),
-        render: async function* ({ symbol, price, delta }) {
+        render: async function* ({ movie }) {
           yield (
             <BotCard>
-              <StockSkeleton />
+              <StocksSkeleton />
             </BotCard>
           )
 
@@ -264,122 +251,15 @@ Besides that, you can also chat with users and do some calculations if needed.`
               {
                 id: nanoid(),
                 role: 'function',
-                name: 'showStockPrice',
-                content: JSON.stringify({ symbol, price, delta })
+                name: 'showMovieSynopsis',
+                content: JSON.stringify(movie)
               }
             ]
           })
 
           return (
             <BotCard>
-              <Stock props={{ symbol, price, delta }} />
-            </BotCard>
-          )
-        }
-      },
-      showStockPurchase: {
-        description:
-          'Show price and the UI to purchase a stock or currency. Use this if the user wants to purchase a stock or currency.',
-        parameters: z.object({
-          symbol: z
-            .string()
-            .describe(
-              'The name or symbol of the stock or currency. e.g. DOGE/AAPL/USD.'
-            ),
-          price: z.number().describe('The price of the stock.'),
-          numberOfShares: z
-            .number()
-            .describe(
-              'The **number of shares** for a stock or currency to purchase. Can be optional if the user did not specify it.'
-            )
-        }),
-        render: async function* ({ symbol, price, numberOfShares = 100 }) {
-          if (numberOfShares <= 0 || numberOfShares > 1000) {
-            aiState.done({
-              ...aiState.get(),
-              messages: [
-                ...aiState.get().messages,
-                {
-                  id: nanoid(),
-                  role: 'system',
-                  content: `[User has selected an invalid amount]`
-                }
-              ]
-            })
-
-            return <BotMessage content={'Invalid amount'} />
-          }
-
-          aiState.done({
-            ...aiState.get(),
-            messages: [
-              ...aiState.get().messages,
-              {
-                id: nanoid(),
-                role: 'function',
-                name: 'showStockPurchase',
-                content: JSON.stringify({
-                  symbol,
-                  price,
-                  numberOfShares
-                })
-              }
-            ]
-          })
-
-          return (
-            <BotCard>
-              <Purchase
-                props={{
-                  numberOfShares,
-                  symbol,
-                  price: +price,
-                  status: 'requires_action'
-                }}
-              />
-            </BotCard>
-          )
-        }
-      },
-      getEvents: {
-        description:
-          'List funny imaginary events between user highlighted dates that describe stock activity.',
-        parameters: z.object({
-          events: z.array(
-            z.object({
-              date: z
-                .string()
-                .describe('The date of the event, in ISO-8601 format'),
-              headline: z.string().describe('The headline of the event'),
-              description: z.string().describe('The description of the event')
-            })
-          )
-        }),
-        render: async function* ({ events }) {
-          yield (
-            <BotCard>
-              <EventsSkeleton />
-            </BotCard>
-          )
-
-          await sleep(1000)
-
-          aiState.done({
-            ...aiState.get(),
-            messages: [
-              ...aiState.get().messages,
-              {
-                id: nanoid(),
-                role: 'function',
-                name: 'getEvents',
-                content: JSON.stringify(events)
-              }
-            ]
-          })
-
-          return (
-            <BotCard>
-              <Events props={events} />
+              <pre>{JSON.stringify(movie)}</pre>
             </BotCard>
           )
         }
