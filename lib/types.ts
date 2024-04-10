@@ -35,3 +35,43 @@ export interface User extends Record<string, any> {
   password: string
   salt: string
 }
+
+export interface BasicMovieInfo {
+  title: string
+  year: string
+  synopsis: string
+  reasons_to_like?: string[] | null
+  reasons_to_dislike?: string[] | null
+}
+export interface Movie {
+  id: string
+  url: string
+  Name: string
+  PosterLink: string
+  Genres: string
+  Actors: string
+  Director: string
+  Description: string
+  DatePublished: string
+  Keywords: string
+  RatingCount: string
+  BestRating: string
+  WorstRating: string
+  RatingValue: string
+  ReviewAurthor: string
+  ReviewDate: string
+  ReviewBody: string
+  duration: string
+}
+
+export interface RefineSearchQuery {
+  actors?: string[]
+  genres?: string[]
+  keywords?: string[]
+  rating?: number
+  year?: number
+  duration?: number
+  director?: string
+  like_titles?: string[]
+  language?: string
+}

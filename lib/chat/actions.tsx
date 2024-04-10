@@ -15,32 +15,26 @@ import {
   BotCard,
   BotMessage,
   SystemMessage,
-  Stock,
-  Purchase
+  Stock
 } from '@/components/stocks'
 
 import { z } from 'zod'
-import { EventsSkeleton } from '@/components/stocks/events-skeleton'
 import { Events } from '@/components/stocks/events'
 import { StocksSkeleton } from '@/components/stocks/stocks-skeleton'
-import { Stocks } from '@/components/stocks/stocks'
-import { StockSkeleton } from '@/components/stocks/stock-skeleton'
-import {
-  formatNumber,
-  runAsyncFnWithoutBlocking,
-  sleep,
-  nanoid
-} from '@/lib/utils'
+import { runAsyncFnWithoutBlocking, sleep, nanoid } from '@/lib/utils'
 import { saveChat } from '@/app/actions'
 import { SpinnerMessage, UserMessage } from '@/components/stocks/message'
-import { Chat } from '@/lib/types'
+import { BasicMovieInfo, Chat, Movie, RefineSearchQuery } from '@/lib/types'
 import { auth } from '@/auth'
+import MovieCard from './MovieCard'
+import ShowRefined from './show-refined'
+import { findMovieByTitleAndYear, getMovieInfo } from '../get-movie-info'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || ''
 })
 
-async function confirmPurchase(symbol: string, price: number, amount: number) {
+export async function refineSearch({ query }: { query: RefineSearchQuery }) {
   'use server'
 
   const aiState = getMutableAIState<typeof AI>()
@@ -49,7 +43,8 @@ async function confirmPurchase(symbol: string, price: number, amount: number) {
     <div className="inline-flex items-start gap-1 md:items-center">
       {spinner}
       <p className="mb-2">
-        Purchasing {amount} ${symbol}...
+        Searching for movies with the following criteria:{' '}
+        {JSON.stringify(query)}...
       </p>
     </div>
   )
@@ -63,7 +58,7 @@ async function confirmPurchase(symbol: string, price: number, amount: number) {
       <div className="inline-flex items-start gap-1 md:items-center">
         {spinner}
         <p className="mb-2">
-          Purchasing {amount} ${symbol}... working on it...
+          Found 3 movies that match your criteria. Here are the results:
         </p>
       </div>
     )
@@ -73,16 +68,14 @@ async function confirmPurchase(symbol: string, price: number, amount: number) {
     purchasing.done(
       <div>
         <p className="mb-2">
-          You have successfully purchased {amount} ${symbol}. Total cost:{' '}
-          {formatNumber(amount * price)}
+          Found 3 movies that match your criteria. Here are the results:
         </p>
       </div>
     )
 
     systemMessage.done(
       <SystemMessage>
-        You have purchased {amount} shares of {symbol} at ${price}. Total cost ={' '}
-        {formatNumber(amount * price)}.
+        ✅ Refined your search! {JSON.stringify(query)}
       </SystemMessage>
     )
 
@@ -92,21 +85,8 @@ async function confirmPurchase(symbol: string, price: number, amount: number) {
         ...aiState.get().messages.slice(0, -1),
         {
           id: nanoid(),
-          role: 'function',
-          name: 'showStockPurchase',
-          content: JSON.stringify({
-            symbol,
-            price,
-            defaultAmount: amount,
-            status: 'completed'
-          })
-        },
-        {
-          id: nanoid(),
           role: 'system',
-          content: `[User has purchased ${amount} shares of ${symbol} at ${price}. Total cost = ${
-            amount * price
-          }]`
+          content: `[User has refined the search with the following criteria: ${JSON.stringify(query)}]`
         }
       ]
     })
@@ -120,7 +100,6 @@ async function confirmPurchase(symbol: string, price: number, amount: number) {
     }
   }
 }
-
 async function submitUserMessage(content: string) {
   'use server'
 
@@ -133,7 +112,7 @@ async function submitUserMessage(content: string) {
       {
         id: nanoid(),
         role: 'user',
-        content
+        content: content + " Display your recommendations as movie cards."
       }
     ]
   })
@@ -151,15 +130,31 @@ async function submitUserMessage(content: string) {
         content: `\
 You are a movie recommender bot and you can help users find the perfect movie to watch, step by step.
 You and the user can discuss genres, emotions, actors and other movie data. The user can indicate which movies they have seen, and which movies seem interesting, in the UI.
+Besides that, you can also chat with users about everything related to movies. Do not engage in conversations that are not related to movies or actors.
+
+This is the rating history of the user:
+1 star: ["The Conjuring", "Cabin in the woods", "Sharknado"]
+2 stars: ["The Pacifier", "Scorpion King", "The Mummy"]
+3 stars: ["The Fast and the Furious", "The Dark Knight", "Die Hard"]
+4 stars: ["The Shawshank Redemption", "Good Will Hunting", "The Matrix", "Blade Runner"]
+5 stars: ["Boyhood", "Inception", "Lady Bird", "Pulp Fiction"]
 
 Messages inside [] means that it's a UI element or a user event. For example:
-- "[User has changed the value of seen for Little Miss Sunshine to true]" means that the user has indicated to have seen the movie in the UI.
+- "[User has changed the value of seen for Heat to true]" means that the user has indicated to have seen the movie in the UI.
 
-If the user requests what a movie is about, call \`show_movie_synopsis\` to show the movie synopsis.
+You recommend movies based on the user's preferences, the context and the query at hand. Make sure to include also less known movies that the user might not have seen yet.
+Do not recommend a movie that the user has already seen. If the user has seen all the movies that match the query, recommend a movie that is similar to the ones the user has seen.
+
+Do NEVER mention recommended movies as plain text. Instead, show them in the UI by calling the function \`showMovies\` with the movie data:
+* Introduction to the list (eg "Here are three sci-fi movies from the 80s that have a similar atmospheric and thought-provoking feel to Blade Runner:")
+* The title of the film without the year
+* The year of the film
+* A short personal synopsis linking to the user's preferences and context
+* Reasons to like the movie linking to the user's preferences and reviews; directly address the user in the reasons (say "you" instead of "some users")
+* Reasons to dislike the movie linking to the user's preferences and reviews; directly address the user
+
 If the user wants to know a list of actors that play in a movie, call \`show_movie_cast\` to show the cast.
-If the user wants to complete another impossible task, respond that you are a demo and cannot do that.
-
-Besides that, you can also chat with users and do some calculations if needed.`
+If the user wants to complete an impossible task, respond that you are a demo and cannot do that.`
       },
       ...aiState.get().messages.map((message: any) => ({
         role: message.role,
@@ -193,10 +188,55 @@ Besides that, you can also chat with users and do some calculations if needed.`
       return textNode
     },
     functions: {
-      showMovieCast: {
-        description: 'List the main actors that play in the movie or do a voice.',
+      showMovies: {
+        description: 'Display one or more movie cards.',
         parameters: z.object({
-          actors:  z.array(z.string()).describe('The main actors or voice actors that play in the movie.')
+          introduction: z.string(),
+          movies: z.array(
+            z.object({
+              title: z.string().describe('The title of the movie'),
+              year: z.string().describe('The year the movie was released.'),
+              synopsis: z.string().describe('The synopsis of the movie.'),
+              reasons_to_like: z.array(z.string()).optional().nullable(),
+              reasons_to_dislike: z.array(z.string()).optional().nullable()
+            })
+          )
+        }),
+        render: async function* ({ introduction, movies }) {
+          yield (
+            <BotCard>
+              <StocksSkeleton />
+            </BotCard>
+          )
+
+          aiState.done({
+            ...aiState.get(),
+            messages: [
+              ...aiState.get().messages,
+              {
+                id: nanoid(),
+                role: 'function',
+                name: 'showMovies',
+                content: JSON.stringify(movies)
+              }
+            ]
+          })
+          const movieCardsData = await getFullMovieData(movies)
+          return (
+            <BotCard>
+              {introduction && <p className="mb-2">{introduction}</p>}
+              <MovieCard props={movieCardsData} />
+            </BotCard>
+          )
+        }
+      },
+      showMovieCast: {
+        description:
+          'List the main actors that play in the movie or do a voice.',
+        parameters: z.object({
+          actors: z
+            .array(z.string())
+            .describe('The main actors or voice actors that play in the movie.')
         }),
         render: async function* ({ actors }) {
           yield (
@@ -227,15 +267,12 @@ Besides that, you can also chat with users and do some calculations if needed.`
           )
         }
       },
-      showMovieSynopsis: {
-        description: 'Display the synopsis of the movie.',
-        parameters: z.object({
-          movie: z.object({
-            title: z.string().describe('The title of the movie'),
-            synopsis: z.string().describe('The synopsis of the movie')
-          })
-        }),
-        render: async function* ({ movie }) {
+      /*
+      showRefinedUserMessage: {
+        description:
+          'Display a refined user search query - only for frontend purposes.',
+        parameters: z.object({}),
+        render: async function* () {
           yield (
             <BotCard>
               <StocksSkeleton />
@@ -251,19 +288,20 @@ Besides that, you can also chat with users and do some calculations if needed.`
               {
                 id: nanoid(),
                 role: 'function',
-                name: 'showMovieSynopsis',
-                content: JSON.stringify(movie)
+                name: 'showRefinedUserMessage',
+                content: ''
               }
             ]
           })
 
           return (
             <BotCard>
-              <pre>{JSON.stringify(movie)}</pre>
+              <ShowRefined />
             </BotCard>
           )
         }
       }
+      */
     }
   })
 
@@ -293,7 +331,7 @@ export type UIState = {
 export const AI = createAI<AIState, UIState>({
   actions: {
     submitUserMessage,
-    confirmPurchase
+    refineSearch
   },
   initialUIState: [],
   initialAIState: { chatId: nanoid(), messages: [] },
@@ -306,7 +344,7 @@ export const AI = createAI<AIState, UIState>({
       const aiState = getAIState()
 
       if (aiState) {
-        const uiState = getUIStateFromAIState(aiState)
+        const uiState = await getUIStateFromAIState(aiState)
         return uiState
       }
     } else {
@@ -342,34 +380,62 @@ export const AI = createAI<AIState, UIState>({
   }
 })
 
-export const getUIStateFromAIState = (aiState: Chat) => {
-  return aiState.messages
-    .filter(message => message.role !== 'system')
-    .map((message, index) => ({
-      id: `${aiState.chatId}-${index}`,
-      display:
-        message.role === 'function' ? (
-          message.name === 'listStocks' ? (
-            <BotCard>
-              <Stocks props={JSON.parse(message.content)} />
-            </BotCard>
-          ) : message.name === 'showStockPrice' ? (
-            <BotCard>
-              <Stock props={JSON.parse(message.content)} />
-            </BotCard>
-          ) : message.name === 'showStockPurchase' ? (
-            <BotCard>
-              <Purchase props={JSON.parse(message.content)} />
-            </BotCard>
-          ) : message.name === 'getEvents' ? (
-            <BotCard>
-              <Events props={JSON.parse(message.content)} />
-            </BotCard>
-          ) : null
-        ) : message.role === 'user' ? (
-          <UserMessage>{message.content}</UserMessage>
-        ) : (
-          <BotMessage content={message.content} />
-        )
-    }))
+export const getUIStateFromAIState = async (aiState: Chat) => {
+  const messages = await Promise.all(
+    aiState.messages
+      .filter(message => message.role !== 'system')
+      .map(async (message, index) => ({
+        id: `${aiState.chatId}-${index}`,
+        display:
+          message.role === 'function' ? (
+            message.name === 'showMovies' ? (
+              <BotCard>
+                <MovieCard
+                  props={await getFullMovieData(JSON.parse(message.content))}
+                />
+              </BotCard>
+            ) : message.name === 'showStockPrice' ? (
+              <BotCard>
+                <Stock props={JSON.parse(message.content)} />
+              </BotCard>
+            ) : message.name === 'getEvents' ? (
+              <BotCard>
+                <Events props={JSON.parse(message.content)} />
+              </BotCard>
+            ) : null
+          ) : message.role === 'user' ? (
+            <UserMessage>{message.content}</UserMessage>
+          ) : (
+            <BotMessage content={message.content} />
+          )
+      }))
+  )
+
+  return messages
+}
+
+async function getFullMovieData(llmmovies: BasicMovieInfo[]) {
+  const movieCardsDataPromises = llmmovies.map(async (m, n) => {
+    let movie: Movie | null = await getMovieInfo(m.title, m.year) // findMovieByTitleAndYear(m.title, m.year)
+
+    if (!movie) {
+      // If not locally found, try to find it in the TMDB API
+      movie = await getMovieInfo(m.title, m.year)
+    }
+
+    return {
+      movie,
+      llmdata: {
+        title: m.title,
+        year: m.year,
+        synopsis: m.synopsis,
+        reasons_to_like: m.reasons_to_like,
+        reasons_to_dislike: m.reasons_to_dislike
+      }
+    }
+  })
+
+  const movieCardsData = await Promise.all(movieCardsDataPromises)
+
+  return movieCardsData
 }
