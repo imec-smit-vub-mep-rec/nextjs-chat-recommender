@@ -24,12 +24,13 @@ import { StocksSkeleton } from '@/components/stocks/stocks-skeleton'
 import { runAsyncFnWithoutBlocking, sleep, nanoid } from '@/lib/utils'
 import { saveChat } from '@/app/actions'
 import { SpinnerMessage, UserMessage } from '@/components/stocks/message'
-import { BasicMovieInfo, Chat, Movie, RefineSearchQuery } from '@/lib/types'
+import { BasicMovieInfo, Chat, Movie, RefineSearchQuery, Session } from '@/lib/types'
 import { auth } from '@/auth'
 import MovieCard from './MovieCard'
 import ShowRefined from './show-refined'
 import { findMovieByTitleAndYear, getMovieInfo } from '../get-movie-info'
 import { RenderConversionStarters } from '@/components/render-conversion-starters'
+import { kv } from '@vercel/kv'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || ''
@@ -107,7 +108,7 @@ async function submitUserMessage(
 ) {
   'use server'
 
-  console.info('submitUserMessage', content, showMovieCards);
+  console.info('🔥 submitUserMessage', content, showMovieCards)
 
   const aiState = getMutableAIState<typeof AI>()
 
@@ -119,15 +120,22 @@ async function submitUserMessage(
         id: nanoid(),
         role: 'user',
         content:
-          content + showMovieCards
+          content /*+ showMovieCards
             ? ' Display your recommendations as movie cards.'
-            : ''
+            : ''*/
       }
     ]
   })
 
   let textStream: undefined | ReturnType<typeof createStreamableValue<string>>
   let textNode: undefined | React.ReactNode
+
+  const session = (await auth()) as Session
+  const user = session?.user
+  let userHistory = null;
+  if (user) {
+    userHistory = await kv.get(`history:${user.email}`)
+  }
 
   const ui = render({
     model: 'gpt-3.5-turbo',
@@ -141,32 +149,30 @@ You are a movie recommender bot and you can help users find the perfect movie to
 You and the user can discuss movies, genres, emotions, actors and other movie data. The user can indicate which movies they have seen, and which movies seem interesting, in the UI.
 Besides that, you can also chat with users about everything related to movies. Do not engage in conversations that are not related to movies or actors.
 
-This is the history of the user:
-Disliked: ["The Conjuring", "Cabin in the woods", "Sharknado", "The Pacifier", "Scorpion King", "The Mummy"]
-Liked: ["The Fast and the Furious", "The Dark Knight", "Die Hard", "The Shawshank Redemption", "Good Will Hunting", "The Matrix", "Blade Runner"]
-Super-liked: ["Boyhood", "Inception", "Lady Bird", "Pulp Fiction"]
-Watched completely, not rated: ["Dune", "The Silence of the lambs", "Eyes Wide Shut", "Basic Instinct", "Toto Le Héros", "Parasite", "UP", "The Lion King", "The Incredibles", "Despicable Me 2", "Big Hero 6", "Toy Story", "Finding Nemo", "Shrek", "The Nightmare Before Christmas"]
-Watched partially, not rated: ["The Shining", "The Godfather", "The Lord of the Rings", "The Exorcist", "Aladdin"]
+${userHistory ? 'This is the history of the user: ' + userHistory : ''}
 
 You recommend movies based on the user's preferences, the context and the query at hand. Make sure to include also less popular movies.
 Do not recommend a movie that the user has already seen. If the user has seen all the movies that match the query, recommend a movie that is similar to the ones the user has seen.
 
-Do NEVER mention recommended movies as plain text. Instead, show them in the UI by calling the function \`showMovies\` with the movie data:
+Do NEVER mention recommended movies as plain text or as a list. Instead, show them in the UI by calling the function \`showMovies\` with the movie data:
 * Introduction to the list (eg "Here are three sci-fi movies from the 80s that have a similar atmospheric and thought-provoking feel to Blade Runner:")
 * The title of the film without the year
 * The year of the film
-* A short personal synopsis linking to the user's preferences and : eg "given your love for thought-provoking movies with a deep philosophical undertone, you'll love the exploration of reality in this film"
-* Reasons to like the movie linking to the user's preferences; directly address the user in the reasons (say "you" instead of "some users")
+* A short personal synopsis linking to the user's preferences and : eg "given your love for thought-provoking movies with a deep philosophical undertone, you'll love the exploration of reality in this film" -> refer to the user's preferences and watching history
+* Reasons to like the movie linking to the user's preferences; directly address the user in the reasons (Write the explanation as if you was talking to someone, for example: "You may like
+this and that".)
 * Reasons to dislike the movie
 * A JSON object indicating at least 3 themes of the movie, summing up to 1; eg {themes: [{theme: "mysterious", amount 0.4, {theme: "unheimlich atmosphere", amount: 0.4}, {theme: "melancholy", amount: 0.2}]}
 
 When asked to generate conversation starters, provide a list of 4 conversation starters based on the user's watching history. Each conversation starter should include:
 * A heading (eg "Comedies for the whole family")
 * A subheading (eg "Because you watched Toy Story, Shrek and Ace Ventura")
-* A prompt (eg "Recommend me some comedies for the whole family like Toy Story, Shrek and Ace Ventura")
+* A prompt to recommend movies in this theme (for example: "Recommend me some comedies for the whole family like Toy Story, Shrek and Ace Ventura")
 * An image of a movie poster or actor related to the conversation starter, given as type (person or movie) and query (the name of the movie or actor)
 
-If the user wants to complete a task unrelated to movies, respond that you cannot do that.`
+If the user wants to complete a task unrelated to movies, respond that you cannot do that.
+VERY IMPORTANT: do NEVER give a list of movies as plain text. Always show them in the UI by calling the function showMovies, available in tools.
+`
       },
       ...aiState.get().messages.map((message: any) => ({
         role: message.role,
@@ -209,7 +215,11 @@ If the user wants to complete a task unrelated to movies, respond that you canno
             z.object({
               title: z.string().describe('The title of the movie'),
               year: z.string().describe('The year the movie was released.'),
-              synopsis: z.string().describe('The synopsis of the movie.'),
+              synopsis: z
+                .string()
+                .describe(
+                  'A personalized synopsis of the movie based on the user preferences and watching history.'
+                ),
               reasons_to_like: z.array(z.string()).optional().nullable(),
               reasons_to_dislike: z.array(z.string()).optional().nullable(),
               themes: z
@@ -271,7 +281,7 @@ If the user wants to complete a task unrelated to movies, respond that you canno
               prompt: z
                 .string()
                 .describe(
-                  'A prompt to act as a conversation starter. For example: Recommend me some comedies for the whole family like Toy Story, Shrek and Ace Ventura.'
+                  'A prompt to act as a search in this theme. For example: Recommend me some comedies for the whole family like Toy Story, Shrek and Ace Ventura.'
                 ),
               image: z.object({
                 type: z.union([z.literal('movie'), z.literal('person')]),

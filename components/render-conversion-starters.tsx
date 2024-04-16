@@ -70,8 +70,7 @@ export function RenderConversionStarters({
   const cards = s.map((starter, index) => (
     <div
       key={starter.heading}
-      className={`flex flex-row gap-2 cursor-pointer rounded-lg border bg-white p-0 hover:bg-zinc-50 dark:bg-zinc-950 dark:hover:bg-zinc-900 ${
-        index > 1 && 'hidden md:block'
+      className={`flex flex-row gap-2 cursor-pointer rounded-lg border bg-white p-0 hover:bg-zinc-50 dark:bg-zinc-950 dark:hover:bg-zinc-900
       }`}
       onClick={async () => {
         setMessages((currentMessages: any) => [
@@ -83,6 +82,7 @@ export function RenderConversionStarters({
         ])
 
         const responseMessage = await submitUserMessage(starter.prompt, true)
+        console.log('✨ responseMessage: ', responseMessage)
 
         setMessages((currentMessages: any) => [
           ...currentMessages,

@@ -75,6 +75,7 @@ export function ChatPanel({
   ]
 
   async function fetchConversationStarters() {
+    if (messages.length !== 0) return
     const msg = 'Get me some conversation starters'
     setMessages((currentMessages: any) => [
       ...currentMessages,
@@ -88,13 +89,6 @@ export function ChatPanel({
     setMessages((currentMessages: any) => [...currentMessages, responseMessage])
   }
 
-  React.useEffect(() => {
-    if (messages.length === 0) {
-      console.info('No messages found, adding default messages.')
-      fetchConversationStarters()
-    }
-  }, [])
-
   return (
     <div
       style={{ zIndex: 99 }}
@@ -106,6 +100,11 @@ export function ChatPanel({
       />
 
       <div className="mx-auto sm:max-w-2xl sm:px-4">
+        {messages.length === 0 ? (
+          <Button onClick={fetchConversationStarters}>
+            Get conversation starters
+          </Button>
+        ) : null}
         {messages?.length >= 2 ? (
           <div className="flex h-12 items-center justify-center">
             <div className="flex space-x-2">

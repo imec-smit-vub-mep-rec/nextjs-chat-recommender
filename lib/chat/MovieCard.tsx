@@ -18,11 +18,7 @@ export default function MovieCards({
 }: {
   props: MovieCardItems[]
 }) {
-  const [query, setQuery] = useState<RefineSearchQuery>({
-    director: '',
-    actors: [],
-    genres: []
-  })
+  const [query, setQuery] = useState<RefineSearchQuery>({})
   const [messages, setMessages] = useUIState<typeof AI>()
   const { refineSearch, submitUserMessage } = useActions()
 
@@ -51,6 +47,7 @@ export default function MovieCards({
       }
     ])
     const responseMessage = await submitUserMessage(userMessage, true)
+    console.log('🚫 responseMessage: ', responseMessage)
 
     setMessages(currentMessages => [...currentMessages, responseMessage])
   }
@@ -66,7 +63,7 @@ export default function MovieCards({
 
     return (
       <MovieCard
-        key={i.movie.id}
+        key={i.movie.id + '-' + n}
         movie={i.movie}
         llmdata={i.llmdata}
         query={query}
@@ -122,15 +119,6 @@ function MovieCard({
     <div className="flex items-center justify-center h-screen bg-[#0d1829] ">
       <div className="mx-auto bg-white rounded-lg shadow-xl flex">
         <div className="w-1/4 relative">
-          <button
-            className="bg-primary hover:bg-orange text-white font-bold py-2 px-4 rounded-lg absolute top-1 left-1"
-            onClick={() => {
-              console.log('clicked')
-              setWatchTrailer(true)
-            }}
-          >
-            Trailer
-          </button>
           <Image
             src={movie.PosterLink}
             alt={movie.Name}
@@ -149,7 +137,13 @@ function MovieCard({
           </a>
           <span className="text-slate-400 pt-2 font-semibold">
             ({movie.DatePublished.split('-')[0]}) | {movie.RatingValue} |{' '}
-            {movie.duration}
+            {movie.duration} |{' '}
+            <span
+              onClick={() => setWatchTrailer(true)}
+              className="cursor-pointer hover:text-zinc-200"
+            >
+              Watch trailer
+            </span>
           </span>
           <div className="h-28">
             <span className="line-clamp-4 py-2 text-sm font-light leading-relaxed">
@@ -184,7 +178,7 @@ function MovieCard({
             {movie.Genres.split(',').map((genre, index) => (
               <Badge
                 color="purple"
-                key={index}
+                key={`${movie.Name}-${index}`}
                 selected={query.genres?.includes(genre)}
               >
                 <input
@@ -203,9 +197,7 @@ function MovieCard({
                     })
                   }}
                 />
-                <label htmlFor={`${id}-genre-${genre}`}>
-                  {genre}
-                </label>
+                <label htmlFor={`${id}-genre-${genre}`}>{genre}</label>
               </Badge>
             ))}
           </div>
@@ -215,7 +207,7 @@ function MovieCard({
               <Badge
                 color="pink"
                 selected={query.actors?.includes(actor)}
-                key={index}
+                key={`${movie.Name}-actor-${index}`}
               >
                 <input
                   id={`${id}-actor-` + actor}
@@ -233,9 +225,7 @@ function MovieCard({
                     })
                   }}
                 />
-                <label htmlFor={`${id}-actor-` + actor}>
-                  {actor}
-                </label>
+                <label htmlFor={`${id}-actor-` + actor}>{actor}</label>
               </Badge>
             ))}
           </div>
@@ -365,12 +355,12 @@ const YouTubeEmbed = ({
   }, [movieName])
 
   if (!trailer) {
-    return <span>Loading...</span>
+    return <span className="h-[315px] text-center">Loading...</span>
   }
 
   return (
     <div className="flex flex-col">
-      <button onClick={() => setWatchTrailer(false)}>Back</button>
+      <button onClick={() => setWatchTrailer(false)}>&larr; Back</button>
       <iframe
         width="560"
         height="315"
