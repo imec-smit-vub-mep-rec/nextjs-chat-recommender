@@ -29,6 +29,7 @@ import { auth } from '@/auth'
 import MovieCard from './MovieCard'
 import ShowRefined from './show-refined'
 import { findMovieByTitleAndYear, getMovieInfo } from '../get-movie-info'
+import { RenderConversionStarters } from '@/components/render-conversion-starters'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || ''
@@ -100,8 +101,13 @@ export async function refineSearch({ query }: { query: RefineSearchQuery }) {
     }
   }
 }
-async function submitUserMessage(content: string) {
+async function submitUserMessage(
+  content: string,
+  showMovieCards: boolean = false // Force to use showMovieCards function, because the model often forgets
+) {
   'use server'
+
+  console.info('submitUserMessage', content, showMovieCards);
 
   const aiState = getMutableAIState<typeof AI>()
 
@@ -112,7 +118,10 @@ async function submitUserMessage(content: string) {
       {
         id: nanoid(),
         role: 'user',
-        content: content + " Display your recommendations as movie cards."
+        content:
+          content + showMovieCards
+            ? ' Display your recommendations as movie cards.'
+            : ''
       }
     ]
   })
@@ -129,37 +138,41 @@ async function submitUserMessage(content: string) {
         role: 'system',
         content: `\
 You are a movie recommender bot and you can help users find the perfect movie to watch, step by step.
-You and the user can discuss genres, emotions, actors and other movie data. The user can indicate which movies they have seen, and which movies seem interesting, in the UI.
+You and the user can discuss movies, genres, emotions, actors and other movie data. The user can indicate which movies they have seen, and which movies seem interesting, in the UI.
 Besides that, you can also chat with users about everything related to movies. Do not engage in conversations that are not related to movies or actors.
 
-This is the rating history of the user:
-1 star: ["The Conjuring", "Cabin in the woods", "Sharknado"]
-2 stars: ["The Pacifier", "Scorpion King", "The Mummy"]
-3 stars: ["The Fast and the Furious", "The Dark Knight", "Die Hard"]
-4 stars: ["The Shawshank Redemption", "Good Will Hunting", "The Matrix", "Blade Runner"]
-5 stars: ["Boyhood", "Inception", "Lady Bird", "Pulp Fiction"]
+This is the history of the user:
+Disliked: ["The Conjuring", "Cabin in the woods", "Sharknado", "The Pacifier", "Scorpion King", "The Mummy"]
+Liked: ["The Fast and the Furious", "The Dark Knight", "Die Hard", "The Shawshank Redemption", "Good Will Hunting", "The Matrix", "Blade Runner"]
+Super-liked: ["Boyhood", "Inception", "Lady Bird", "Pulp Fiction"]
+Watched completely, not rated: ["Dune", "The Silence of the lambs", "Eyes Wide Shut", "Basic Instinct", "Toto Le Héros", "Parasite", "UP", "The Lion King", "The Incredibles", "Despicable Me 2", "Big Hero 6", "Toy Story", "Finding Nemo", "Shrek", "The Nightmare Before Christmas"]
+Watched partially, not rated: ["The Shining", "The Godfather", "The Lord of the Rings", "The Exorcist", "Aladdin"]
 
-Messages inside [] means that it's a UI element or a user event. For example:
-- "[User has changed the value of seen for Heat to true]" means that the user has indicated to have seen the movie in the UI.
-
-You recommend movies based on the user's preferences, the context and the query at hand. Make sure to include also less known movies that the user might not have seen yet.
+You recommend movies based on the user's preferences, the context and the query at hand. Make sure to include also less popular movies.
 Do not recommend a movie that the user has already seen. If the user has seen all the movies that match the query, recommend a movie that is similar to the ones the user has seen.
 
 Do NEVER mention recommended movies as plain text. Instead, show them in the UI by calling the function \`showMovies\` with the movie data:
 * Introduction to the list (eg "Here are three sci-fi movies from the 80s that have a similar atmospheric and thought-provoking feel to Blade Runner:")
 * The title of the film without the year
 * The year of the film
-* A short personal synopsis linking to the user's preferences and context
-* Reasons to like the movie linking to the user's preferences and reviews; directly address the user in the reasons (say "you" instead of "some users")
-* Reasons to dislike the movie linking to the user's preferences and reviews; directly address the user
+* A short personal synopsis linking to the user's preferences and : eg "given your love for thought-provoking movies with a deep philosophical undertone, you'll love the exploration of reality in this film"
+* Reasons to like the movie linking to the user's preferences; directly address the user in the reasons (say "you" instead of "some users")
+* Reasons to dislike the movie
+* A JSON object indicating at least 3 themes of the movie, summing up to 1; eg {themes: [{theme: "mysterious", amount 0.4, {theme: "unheimlich atmosphere", amount: 0.4}, {theme: "melancholy", amount: 0.2}]}
 
-If the user wants to know a list of actors that play in a movie, call \`show_movie_cast\` to show the cast.
-If the user wants to complete an impossible task, respond that you are a demo and cannot do that.`
+When asked to generate conversation starters, provide a list of 4 conversation starters based on the user's watching history. Each conversation starter should include:
+* A heading (eg "Comedies for the whole family")
+* A subheading (eg "Because you watched Toy Story, Shrek and Ace Ventura")
+* A prompt (eg "Recommend me some comedies for the whole family like Toy Story, Shrek and Ace Ventura")
+* An image of a movie poster or actor related to the conversation starter, given as type (person or movie) and query (the name of the movie or actor)
+
+If the user wants to complete a task unrelated to movies, respond that you cannot do that.`
       },
       ...aiState.get().messages.map((message: any) => ({
         role: message.role,
         content: message.content,
         name: message.name
+        //tool_choice: { type: 'function', function: { name: 'showMovies' } }
       }))
     ],
     text: ({ content, done, delta }) => {
@@ -187,7 +200,7 @@ If the user wants to complete an impossible task, respond that you are a demo an
 
       return textNode
     },
-    functions: {
+    tools: {
       showMovies: {
         description: 'Display one or more movie cards.',
         parameters: z.object({
@@ -198,7 +211,16 @@ If the user wants to complete an impossible task, respond that you are a demo an
               year: z.string().describe('The year the movie was released.'),
               synopsis: z.string().describe('The synopsis of the movie.'),
               reasons_to_like: z.array(z.string()).optional().nullable(),
-              reasons_to_dislike: z.array(z.string()).optional().nullable()
+              reasons_to_dislike: z.array(z.string()).optional().nullable(),
+              themes: z
+                .array(
+                  z.object({
+                    theme: z.string().describe('The theme of the movie.'),
+                    amount: z.number().describe('The amount of the theme.')
+                  })
+                )
+                .optional()
+                .nullable()
             })
           )
         }),
@@ -230,6 +252,64 @@ If the user wants to complete an impossible task, respond that you are a demo an
           )
         }
       },
+      generateConversationStarters: {
+        description:
+          'Based on the user watching history, recommend some conversation starters.',
+        parameters: z.object({
+          cards: z.array(
+            z.object({
+              heading: z
+                .string()
+                .describe(
+                  'Heading of the conversation starter. For example: Comedies for the whole family.'
+                ),
+              subheading: z
+                .string()
+                .describe(
+                  'Short explanation why this topic is recommended to the user. For example: Because you watched Toy Story, Shrek and Ace Ventura.'
+                ),
+              prompt: z
+                .string()
+                .describe(
+                  'A prompt to act as a conversation starter. For example: Recommend me some comedies for the whole family like Toy Story, Shrek and Ace Ventura.'
+                ),
+              image: z.object({
+                type: z.union([z.literal('movie'), z.literal('person')]),
+                query: z.string().describe('The title of the movie or actor.')
+              })
+            })
+          )
+        }),
+        render: async function* ({ cards }) {
+          yield (
+            <BotCard>
+              <StocksSkeleton />
+            </BotCard>
+          )
+
+          await sleep(1000)
+
+          aiState.done({
+            ...aiState.get(),
+            messages: [
+              ...aiState.get().messages,
+              {
+                id: nanoid(),
+                role: 'function',
+                name: 'generateConversationStarters',
+                content: JSON.stringify(cards)
+              }
+            ]
+          })
+
+          return (
+            <BotCard>
+              <RenderConversionStarters starters={cards} />
+            </BotCard>
+          )
+        }
+      }
+      /*
       showMovieCast: {
         description:
           'List the main actors that play in the movie or do a voice.',
@@ -266,7 +346,8 @@ If the user wants to complete an impossible task, respond that you are a demo an
             </BotCard>
           )
         }
-      },
+      }
+      */
       /*
       showRefinedUserMessage: {
         description:
@@ -393,10 +474,16 @@ export const getUIStateFromAIState = async (aiState: Chat) => {
                 <MovieCard
                   props={await getFullMovieData(JSON.parse(message.content))}
                 />
-              </BotCard>
-            ) : message.name === 'showStockPrice' ? (
+              </BotCard> /*: message.name === 'showMovieCast' ? (
               <BotCard>
-                <Stock props={JSON.parse(message.content)} />
+                <pre>{JSON.parse(message.content)}</pre>
+              </BotCard>
+            )*/
+            ) : message.name === 'generateConversationStarters' ? (
+              <BotCard>
+                <RenderConversionStarters
+                  starters={JSON.parse(message.content)}
+                />
               </BotCard>
             ) : message.name === 'getEvents' ? (
               <BotCard>
@@ -425,13 +512,7 @@ async function getFullMovieData(llmmovies: BasicMovieInfo[]) {
 
     return {
       movie,
-      llmdata: {
-        title: m.title,
-        year: m.year,
-        synopsis: m.synopsis,
-        reasons_to_like: m.reasons_to_like,
-        reasons_to_dislike: m.reasons_to_dislike
-      }
+      llmdata: m
     }
   })
 

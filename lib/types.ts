@@ -36,12 +36,17 @@ export interface User extends Record<string, any> {
   salt: string
 }
 
+export interface Theme {
+  theme: string
+  amount: number
+}
 export interface BasicMovieInfo {
   title: string
   year: string
   synopsis: string
   reasons_to_like?: string[] | null
   reasons_to_dislike?: string[] | null
+  themes?: Theme[] | null
 }
 export interface Movie {
   id: string

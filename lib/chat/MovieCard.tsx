@@ -1,15 +1,13 @@
 'use client'
 import Image from 'next/image'
 import { BasicMovieInfo, Movie, RefineSearchQuery } from '../types'
-
-import { StarIcon } from '@radix-ui/react-icons'
 import Accordion from './Accordion'
 import { useEffect, useState } from 'react'
 import { useActions, useAIState, useUIState } from 'ai/rsc'
 import type { AI } from '@/lib/chat/actions'
-import { getMovieInfo } from '../get-movie-info'
 import { nanoid } from 'nanoid'
 import { UserMessage } from '@/components/stocks/message'
+import PieChartComponent from '@/components/pie-chart'
 
 interface MovieCardItems {
   movie: Movie | null
@@ -25,7 +23,6 @@ export default function MovieCards({
     actors: [],
     genres: []
   })
-  const [aiState, setAIState] = useAIState<typeof AI>()
   const [messages, setMessages] = useUIState<typeof AI>()
   const { refineSearch, submitUserMessage } = useActions()
 
@@ -53,7 +50,7 @@ export default function MovieCards({
         display: <UserMessage>{userMessage}</UserMessage>
       }
     ])
-    const responseMessage = await submitUserMessage(userMessage)
+    const responseMessage = await submitUserMessage(userMessage, true)
 
     setMessages(currentMessages => [...currentMessages, responseMessage])
   }
@@ -159,15 +156,15 @@ function MovieCard({
               {synopsis}{' '}
             </span>
           </div>
-          <div>
-            <span className="text-sm font-semibold mr-1">Director:</span>
-            <Badge color="orange">
+          <div className="my-2">
+            <span className="text-sm font-semibold mr-1 ">Director:</span>
+            <Badge color="orange" selected={query.director == movie.Director}>
               <input
                 id={`${id}-director-${movie.Director}`}
                 aria-describedby="comments-description"
                 name="comments"
                 type="checkbox"
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                className="h-0 w-0 rounded invisible"
                 checked={query.director == movie.Director}
                 onChange={() => {
                   setQuery({
@@ -177,24 +174,25 @@ function MovieCard({
                   })
                 }}
               />
-              <label
-                htmlFor={`${id}-director-${movie.Director}`}
-                className="ml-2"
-              >
+              <label htmlFor={`${id}-director-${movie.Director}`}>
                 {movie.Director}
               </label>
             </Badge>
           </div>
-          <div>
+          <div className="my-2">
             <span className="text-sm font-semibold mr-1">Genres:</span>
             {movie.Genres.split(',').map((genre, index) => (
-              <Badge color="purple" key={index}>
+              <Badge
+                color="purple"
+                key={index}
+                selected={query.genres?.includes(genre)}
+              >
                 <input
                   id={`${id}-genre-${genre}`}
                   aria-describedby="comments-description"
                   name="comments"
                   type="checkbox"
-                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                  className="invisible"
                   checked={query.genres?.includes(genre)}
                   onChange={() => {
                     setQuery({
@@ -205,22 +203,26 @@ function MovieCard({
                     })
                   }}
                 />
-                <label htmlFor={`${id}-genre-${genre}`} className="ml-2">
+                <label htmlFor={`${id}-genre-${genre}`}>
                   {genre}
                 </label>
               </Badge>
             ))}
           </div>
-          <div>
+          <div className="my-2">
             <span className="text-sm font-semibold mr-1">Actors:</span>
             {movie.Actors.split(',').map((actor, index) => (
-              <Badge color="pink" key={index}>
+              <Badge
+                color="pink"
+                selected={query.actors?.includes(actor)}
+                key={index}
+              >
                 <input
                   id={`${id}-actor-` + actor}
                   aria-describedby="comments-description"
                   name="comments"
                   type="checkbox"
-                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                  className="invisible"
                   checked={query.actors?.includes(actor)}
                   onChange={() => {
                     setQuery({
@@ -231,7 +233,7 @@ function MovieCard({
                     })
                   }}
                 />
-                <label htmlFor={`${id}-actor-` + actor} className="ml-2">
+                <label htmlFor={`${id}-actor-` + actor}>
                   {actor}
                 </label>
               </Badge>
@@ -242,7 +244,7 @@ function MovieCard({
               items={[
                 {
                   title: 'Neutral description',
-                  content: movie.Description.split('. ').slice(1).join('. ')
+                  content: movie.Description
                 },
                 /*{ title: 'Reviews summary', content: movie.ReviewBody },
                 { title: 'Thematics', content: movie.Keywords },*/
@@ -250,9 +252,17 @@ function MovieCard({
                   title: 'Why you may like it',
                   content: reasons_to_like?.join(', ')
                 },
+                ...(reasons_to_dislike
+                  ? [
+                      {
+                        title: 'Why you may not like it',
+                        content: reasons_to_dislike?.join(', ')
+                      }
+                    ]
+                  : []),
                 {
-                  title: 'Why you may not like it',
-                  content: reasons_to_dislike?.join(', ')
+                  title: 'Themes',
+                  content: <PieChartComponent themes={llmdata.themes || []} />
                 }
               ]}
             />
@@ -265,17 +275,23 @@ function MovieCard({
 
 const Badge = ({
   color = 'gray',
+  selected,
   children
 }: {
   color: string
+  selected?: boolean
   children: any
-}) => (
-  <span
-    className={`inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium text-black ring-1 ring-inset ring-${color}`}
-  >
-    {children}
-  </span>
-)
+}) => {
+  const backGroundColor = selected ? 'bg-primary' : `bg-muted`
+  const textColor = selected ? 'text-white' : `text-black`
+  return (
+    <span
+      className={`inline-flex items-center rounded-full ${backGroundColor} px-2 py-1 text-xs font-medium ${textColor} ring-1 ring-inset ring-${color}`}
+    >
+      {children}
+    </span>
+  )
+}
 
 const YouTubeEmbed = ({
   movieName,

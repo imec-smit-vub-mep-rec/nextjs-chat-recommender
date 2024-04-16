@@ -1,18 +1,18 @@
 import localMovies from '@/lib/data/movies.json'
 const imageBaseString = 'https://image.tmdb.org/t/p/w200'
+const options = {
+  method: 'GET',
+  headers: {
+    accept: 'application/json',
+    // ! Unsafe: API key should not be used in client-side code
+    Authorization: `Bearer ${process.env.NEXT_PUBLIC_TMDB_API_READ_ACCESS_TOKEN}`
+  }
+}
 
 export async function getMovieInfo(movieName: string, year: string) {
   let movie = null
 
   const url = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(movieName)}&include_adult=false&language=en-US&page=1&year=${year}`
-  const options = {
-    method: 'GET',
-    headers: {
-      accept: 'application/json',
-      // ! Unsafe: API key should not be used in client-side code
-      Authorization: `Bearer ${process.env.NEXT_PUBLIC_TMDB_API_READ_ACCESS_TOKEN}`
-    }
-  }
 
   await fetch(url, options)
     .then(res => res.json())
@@ -79,4 +79,30 @@ export function findMovieByTitleAndYear(title: string, year?: string) {
   }
 
   return localMovie
+}
+
+export async function getMovieFromOMDB(title: string, year: string) {
+  let movie = null
+  const url = `http://www.omdbapi.com/?t=${encodeURIComponent(title)}&y=${year}&apikey=${process.env.NEXT_PUBLIC_OMDB_API_KEY}`
+
+  await fetch(url)
+    .then(res => res.json())
+    .then(json => {
+      console.log('json:', json)
+      movie = json
+    })
+    .catch(err => console.error('error:' + err))
+
+  return movie
+}
+
+export async function getMoviePoster(name: string) {
+  const url = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(name)}&include_adult=false&language=en-US&page=1`
+  const response = await fetch(url, options)
+  const data = await response.json()
+  const image = data.results[0]?.poster_path
+    ? `${imageBaseString}${data.results[0].poster_path}`
+    : ''
+
+  return image
 }
