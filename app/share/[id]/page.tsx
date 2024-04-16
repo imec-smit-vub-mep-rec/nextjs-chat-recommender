@@ -33,7 +33,7 @@ export default async function SharePage({ params }: SharePageProps) {
     notFound()
   }
 
-  const uiState: UIState = getUIStateFromAIState(chat)
+  const uiState: any = getUIStateFromAIState(chat)
 
   return (
     <>

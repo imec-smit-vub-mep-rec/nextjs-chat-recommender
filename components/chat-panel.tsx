@@ -101,9 +101,11 @@ export function ChatPanel({
 
       <div className="mx-auto sm:max-w-2xl sm:px-4">
         {messages.length === 0 ? (
-          <Button onClick={fetchConversationStarters}>
-            Get conversation starters
-          </Button>
+          <div className="w-full items-center justify-center flex">
+            <Button className="center mb-5" onClick={fetchConversationStarters}>
+              Get conversation starters
+            </Button>
+          </div>
         ) : null}
         {messages?.length >= 2 ? (
           <div className="flex h-12 items-center justify-center">

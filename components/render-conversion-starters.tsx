@@ -36,7 +36,7 @@ export function RenderConversionStarters({
 
   const fetchImages = async () => {
     const startersWithImages = starters.map(async starter => {
-      let image = ''
+      let image: string | undefined = ''
       if (starter.image.type === 'movie') {
         image = await getLocalMoviePoster(starter.image.query)
 

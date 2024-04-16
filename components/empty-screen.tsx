@@ -1,23 +1,5 @@
 import { UseChatHelpers } from 'ai/react'
 
-import { Button } from '@/components/ui/button'
-import { ExternalLink } from '@/components/external-link'
-import { IconArrowRight } from '@/components/ui/icons'
-
-const exampleMessages = [
-  {
-    heading: 'Explain technical concepts',
-    message: `What is a "serverless function"?`
-  },
-  {
-    heading: 'Summarize an article',
-    message: 'Summarize the following article for a 2nd grader: \n'
-  },
-  {
-    heading: 'Draft an email',
-    message: `Draft an email to my boss about the following: \n`
-  }
-]
 
 export function EmptyScreen() {
   return (
@@ -27,7 +9,7 @@ export function EmptyScreen() {
           Welcome to the movie recommender chatbot!
         </h1>
         <p className="leading-normal text-muted-foreground">
-          Ask me about movies and I'll try to recommend you something good.
+          Ask me about movies and I&apos;ll try to recommend you something good.
         </p>
         <p className="leading-normal text-muted-foreground">
           This is demo AI chatbot to showcase novel hybrid conversational user interfaces.

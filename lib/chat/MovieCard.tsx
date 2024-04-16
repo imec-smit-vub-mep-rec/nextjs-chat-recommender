@@ -240,13 +240,13 @@ function MovieCard({
                 { title: 'Thematics', content: movie.Keywords },*/
                 {
                   title: 'Why you may like it',
-                  content: reasons_to_like?.join(', ')
+                  content: reasons_to_like?.join(', ') || ''
                 },
                 ...(reasons_to_dislike
                   ? [
                       {
                         title: 'Why you may not like it',
-                        content: reasons_to_dislike?.join(', ')
+                        content: reasons_to_dislike || ''
                       }
                     ]
                   : []),

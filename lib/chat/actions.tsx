@@ -24,7 +24,13 @@ import { StocksSkeleton } from '@/components/stocks/stocks-skeleton'
 import { runAsyncFnWithoutBlocking, sleep, nanoid } from '@/lib/utils'
 import { saveChat } from '@/app/actions'
 import { SpinnerMessage, UserMessage } from '@/components/stocks/message'
-import { BasicMovieInfo, Chat, Movie, RefineSearchQuery, Session } from '@/lib/types'
+import {
+  BasicMovieInfo,
+  Chat,
+  Movie,
+  RefineSearchQuery,
+  Session
+} from '@/lib/types'
 import { auth } from '@/auth'
 import MovieCard from './MovieCard'
 import ShowRefined from './show-refined'
@@ -119,8 +125,7 @@ async function submitUserMessage(
       {
         id: nanoid(),
         role: 'user',
-        content:
-          content /*+ showMovieCards
+        content: content /*+ showMovieCards
             ? ' Display your recommendations as movie cards.'
             : ''*/
       }
@@ -132,7 +137,7 @@ async function submitUserMessage(
 
   const session = (await auth()) as Session
   const user = session?.user
-  let userHistory = null;
+  let userHistory = null
   if (user) {
     userHistory = await kv.get(`history:${user.email}`)
   }
@@ -152,7 +157,7 @@ Besides that, you can also chat with users about everything related to movies. D
 ${userHistory ? 'This is the history of the user: ' + userHistory : ''}
 
 You recommend movies based on the user's preferences, the context and the query at hand. Make sure to include also less popular movies.
-Do not recommend a movie that the user has already seen. If the user has seen all the movies that match the query, recommend a movie that is similar to the ones the user has seen.
+Do not recommend a movie that the user has already seen or that are already recommended in the query. If the user has seen all the movies that match the query, recommend a movie that is similar to the ones the user has seen.
 
 Do NEVER mention recommended movies as plain text or as a list. Instead, show them in the UI by calling the function \`showMovies\` with the movie data:
 * Introduction to the list (eg "Here are three sci-fi movies from the 80s that have a similar atmospheric and thought-provoking feel to Blade Runner:")
