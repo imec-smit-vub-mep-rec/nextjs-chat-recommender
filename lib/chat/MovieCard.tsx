@@ -8,6 +8,7 @@ import type { AI } from '@/lib/chat/actions'
 import { nanoid } from 'nanoid'
 import { UserMessage } from '@/components/stocks/message'
 import PieChartComponent from '@/components/pie-chart'
+import { ClockIcon, EyeOpenIcon, StarFilledIcon } from '@radix-ui/react-icons'
 
 interface MovieCardItems {
   movie: Movie | null
@@ -133,24 +134,40 @@ function MovieCard({
             href={`${movie.PosterLink}`}
             className="group-hover:text-cyan-700 font-bold sm:text-2xl line-clamp-2"
           >
-            {movie.Name}
+            {movie.Name} | ({movie.DatePublished.split('-')[0]})
           </a>
-          <span className="text-slate-400 pt-2 font-semibold">
-            ({movie.DatePublished.split('-')[0]}) | {movie.RatingValue} |{' '}
-            {movie.duration} |{' '}
-            <span
+          <div className="flex gap-5 text-slate-400 pt-2 font-semibold">
+            <div className="flex align-middle items-center gap-1">
+              <StarFilledIcon
+                className="inline-block w-3 h-3 text-yellow-400"
+                aria-hidden="true"
+              />
+              {parseFloat(movie.RatingValue).toFixed(2)}
+            </div>
+            <div className="flex align-middle items-center gap-1">
+              <ClockIcon
+                className="inline-block w-3 h-3 text-yellow-400"
+                aria-hidden="true"
+              />{' '}
+              {convertMinutesToHours(parseInt(movie.duration))}
+            </div>
+            <div
+              className="flex align-middle items-center gap-1 hover:bg-zinc-200/40 px-2 py-1 rounded-md cursor-pointer"
               onClick={() => setWatchTrailer(true)}
-              className="cursor-pointer hover:text-zinc-200"
             >
-              Watch trailer
-            </span>
-          </span>
+              <EyeOpenIcon
+                className="inline-block w-3 h-3 text-yellow-400 "
+                aria-hidden="true"
+              />{' '}
+              <span>Watch trailer</span>
+            </div>
+          </div>
           <div className="h-28">
             <span className="line-clamp-4 py-2 text-sm font-light leading-relaxed">
               {synopsis}{' '}
             </span>
           </div>
-          <div className="my-2">
+          <div className="my-3">
             <span className="text-sm font-semibold mr-1 ">Director:</span>
             <Badge color="orange" selected={query.director == movie.Director}>
               <input
@@ -173,7 +190,7 @@ function MovieCard({
               </label>
             </Badge>
           </div>
-          <div className="my-2">
+          <div className="my-4">
             <span className="text-sm font-semibold mr-1">Genres:</span>
             {movie.Genres.split(',').map((genre, index) => (
               <Badge
@@ -201,7 +218,7 @@ function MovieCard({
               </Badge>
             ))}
           </div>
-          <div className="my-2">
+          <div className="my-3">
             <span className="text-sm font-semibold mr-1">Actors:</span>
             {movie.Actors.split(',').map((actor, index) => (
               <Badge
@@ -240,7 +257,7 @@ function MovieCard({
                 { title: 'Thematics', content: movie.Keywords },*/
                 {
                   title: 'Why you may like it',
-                  content: reasons_to_like?.join(', ') || ''
+                  content: reasons_to_like?.join(', ') || ''
                 },
                 ...(reasons_to_dislike
                   ? [
@@ -281,6 +298,13 @@ const Badge = ({
       {children}
     </span>
   )
+}
+
+// Convert minutes to hours and minutes
+const convertMinutesToHours = (minutes: number) => {
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  return `${hours}h ${remainingMinutes}m`
 }
 
 const YouTubeEmbed = ({

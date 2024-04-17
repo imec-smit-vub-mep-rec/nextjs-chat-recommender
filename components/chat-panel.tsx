@@ -76,7 +76,7 @@ export function ChatPanel({
 
   async function fetchConversationStarters() {
     if (messages.length !== 0) return
-    const msg = 'Get me some conversation starters'
+    const msg = 'Get me four conversation starters'
     setMessages((currentMessages: any) => [
       ...currentMessages,
       {

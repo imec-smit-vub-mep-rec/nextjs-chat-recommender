@@ -110,11 +110,17 @@ export async function refineSearch({ query }: { query: RefineSearchQuery }) {
 }
 async function submitUserMessage(
   content: string,
-  showMovieCards: boolean = false // Force to use showMovieCards function, because the model often forgets
+  doShowMovieCards: boolean = false // Force to use showMovieCards function, because the model often forgets
 ) {
   'use server'
 
-  console.info('🔥 submitUserMessage', content, showMovieCards)
+  console.info('🔥 submitUserMessage', content, doShowMovieCards)
+  const newContent =
+    content +
+    (doShowMovieCards === true
+      ? ' Display your recommendations as movie cards. Do not recommend movies that I have already seen.'
+      : '')
+    console.log('newContent', newContent)
 
   const aiState = getMutableAIState<typeof AI>()
 
@@ -125,9 +131,7 @@ async function submitUserMessage(
       {
         id: nanoid(),
         role: 'user',
-        content: content /*+ showMovieCards
-            ? ' Display your recommendations as movie cards.'
-            : ''*/
+        content: newContent
       }
     ]
   })
@@ -145,6 +149,7 @@ async function submitUserMessage(
   const ui = render({
     model: 'gpt-3.5-turbo',
     provider: openai,
+    temperature: 1.1, // Higher temp leads to more hallucinations
     initial: <SpinnerMessage />,
     messages: [
       {
@@ -169,7 +174,8 @@ this and that".)
 * Reasons to dislike the movie
 * A JSON object indicating at least 3 themes of the movie, summing up to 1; eg {themes: [{theme: "mysterious", amount 0.4, {theme: "unheimlich atmosphere", amount: 0.4}, {theme: "melancholy", amount: 0.2}]}
 
-When asked to generate conversation starters, provide a list of 4 conversation starters based on the user's watching history. Each conversation starter should include:
+When asked to generate conversation starters, provide a list of 4 conversation starters based on the user's watching history. A conversaion starter can relate to a theme, a genre, a country, a specific actor etc.
+Each conversation starter should include:
 * A heading (eg "Comedies for the whole family")
 * A subheading (eg "Because you watched Toy Story, Shrek and Ace Ventura")
 * A prompt to recommend movies in this theme (for example: "Recommend me some comedies for the whole family like Toy Story, Shrek and Ace Ventura")
@@ -269,7 +275,7 @@ VERY IMPORTANT: do NEVER give a list of movies as plain text. Always show them i
       },
       generateConversationStarters: {
         description:
-          'Based on the user watching history, recommend some conversation starters.',
+          'Based on the user watching history, recommend some conversation starters: themes, actors, directors, countries, ...',
         parameters: z.object({
           cards: z.array(
             z.object({
