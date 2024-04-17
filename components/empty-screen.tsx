@@ -12,7 +12,7 @@ export function EmptyScreen() {
           Ask me about movies and I&apos;ll try to recommend you something good.
         </p>
         <p className="leading-normal text-muted-foreground">
-          This is demo AI chatbot to showcase novel hybrid conversational user interfaces.
+          This is demo AI chatbot to showcase an interactive and personalized interface for a conversational movie recommender.
         </p>
       </div>
     </div>
