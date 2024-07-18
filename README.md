@@ -1,5 +1,4 @@
-  <img alt="Next.js 14 and App Router-ready AI chatbot." src="https://s6.imgcdn.dev/W2V80.png">
-  <h1 align="center">Movie Recommender Chatbot</h1>
+<h1 align="center">Movie Recommender Chatbot</h1>
 
 <p align="center">
   An interactive and personalized interface for a conversational movie recommender.
@@ -13,6 +12,11 @@
   <a href="#authors"><strong>Authors</strong></a>
 </p>
 <br/>
+
+## TECHNICAL REQUIREMENTS FOR DEMONSTRATING THE SYSTEM
+
+For running the application locally, you will need a Node.js environment and a web browser, along with a Vercel account. Additionally, you will require API keys for OpenAI and Vercel Serverless Redis database, as well as an API key for TMDB.
+However, during the conference, we can deploy a fully configured application on a publicly accessible URL for seamless access from any web browser.
 
 ## Features
 
@@ -29,7 +33,7 @@
 
 ## Model Providers
 
-This template ships with OpenAI `gpt-3.5-turbo` as the default. However, thanks to the [Vercel AI SDK](https://sdk.vercel.ai/docs), you can switch LLM providers to [Anthropic](https://anthropic.com), [Cohere](https://cohere.com/), [Hugging Face](https://huggingface.co), or using [LangChain](https://js.langchain.com) with just a few lines of code.
+This demonstration ships with OpenAI `gpt-3.5-turbo` as the default. However, thanks to the [Vercel AI SDK](https://sdk.vercel.ai/docs), you can switch LLM providers to [Anthropic](https://anthropic.com), [Cohere](https://cohere.com/), [Hugging Face](https://huggingface.co), or using [LangChain](https://js.langchain.com) with just a few lines of code.
 
 ## Creating a KV Database Instance
 
@@ -59,6 +63,7 @@ Your app template should now be running on [localhost:3000](http://localhost:300
 ## Authors
 
 ulysse.jan.l.maes@vub.be
+lien.michiels@uantwerpen.be
 annelien.smets@vub.be
 tim.raats@vub.be
 

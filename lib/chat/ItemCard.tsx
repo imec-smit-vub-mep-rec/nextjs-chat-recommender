@@ -10,32 +10,24 @@ import { UserMessage } from '@/components/stocks/message'
 import PieChartComponent from '@/components/pie-chart'
 import { ClockIcon, EyeOpenIcon, StarFilledIcon } from '@radix-ui/react-icons'
 
-interface MovieCardItems {
+interface ItemCardItems {
   movie: Movie | null
   llmdata: BasicMovieInfo
 }
-export default function MovieCards({
+export default function ItemCards({
   props: items
 }: {
-  props: MovieCardItems[]
+  props: ItemCardItems[]
 }) {
   const [query, setQuery] = useState<RefineSearchQuery>({})
   const [messages, setMessages] = useUIState<typeof AI>()
-  const { refineSearch, submitUserMessage } = useActions()
+  const { submitUserMessage } = useActions()
 
   const handleRefine = async () => {
     if (!query.actors && !query.director && !query.genres) return
-    /*
-    const response = await refineSearch(query)
-    console.log('currentMessages: ', messages, '|| RES: ', response)
-    setMessages((currentMessages: any) => [
-      ...currentMessages,
-      response.newMessage
-    ])
-    */
 
     const userMessage = `Recommend multiple 
-    ${query?.genres && query?.genres?.length > 0 ? query.genres?.toString() : ''} 
+    ${query?.genres && query?.genres?.length > 0 ? query.genres?.toString().toLowerCase() : ''} 
     movies ${query?.actors && query?.actors?.length > 0 ? 'starring ' + query.actors?.toString() : ''} 
     ${query?.director ? 'directed by ' + query.director + ' or a similar director' : ''}
     .`
@@ -63,7 +55,7 @@ export default function MovieCards({
     }
 
     return (
-      <MovieCard
+      <ItemCard
         key={i.movie.id + '-' + n}
         movie={i.movie}
         llmdata={i.llmdata}
@@ -93,7 +85,7 @@ export default function MovieCards({
   )
 }
 
-function MovieCard({
+function ItemCard({
   movie,
   llmdata,
   query,
@@ -105,7 +97,7 @@ function MovieCard({
   setQuery: Function
 }) {
   const { title, synopsis, reasons_to_like, reasons_to_dislike } = llmdata
-  const id = title.replaceAll(' ', '-')
+  const id = title?.replaceAll(' ', '-')
 
   const [watchTrailer, setWatchTrailer] = useState(false)
 
@@ -257,7 +249,7 @@ function MovieCard({
                 { title: 'Thematics', content: movie.Keywords },*/
                 {
                   title: 'Why you may like it',
-                  content: reasons_to_like?.join(', ') || ''
+                  content: reasons_to_like || ''
                 },
                 ...(reasons_to_dislike
                   ? [

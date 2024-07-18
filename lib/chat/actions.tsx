@@ -15,7 +15,6 @@ import {
   BotCard,
   BotMessage,
   SystemMessage,
-  Stock
 } from '@/components/stocks'
 
 import { z } from 'zod'
@@ -32,7 +31,7 @@ import {
   Session
 } from '@/lib/types'
 import { auth } from '@/auth'
-import MovieCard from './MovieCard'
+import ItemCard from './ItemCard'
 import ShowRefined from './show-refined'
 import { findMovieByTitleAndYear, getMovieInfo } from '../get-movie-info'
 import { RenderConversionStarters } from '@/components/render-conversion-starters'
@@ -110,14 +109,14 @@ export async function refineSearch({ query }: { query: RefineSearchQuery }) {
 }
 async function submitUserMessage(
   content: string,
-  doShowMovieCards: boolean = false // Force to use showMovieCards function, because the model often forgets
+  doShowItemCards: boolean = false // Force to use showItemCards function, because the model often forgets
 ) {
   'use server'
 
-  console.info('🔥 submitUserMessage', content, doShowMovieCards)
+  console.info('🔥 submitUserMessage', content, doShowItemCards)
   const newContent =
     content +
-    (doShowMovieCards === true
+    (doShowItemCards === true
       ? ' Display your recommendations as movie cards. Do not recommend movies that I have already seen.'
       : '')
     console.log('newContent', newContent)
@@ -147,7 +146,7 @@ async function submitUserMessage(
   }
 
   const ui = render({
-    model: 'gpt-3.5-turbo',
+    model: 'asst_I5PSjFlc9iplFKKrgWguKTAC', // gpt-3.5-turbo
     provider: openai,
     temperature: 1.1, // Higher temp leads to more hallucinations
     initial: <SpinnerMessage />,
@@ -264,11 +263,11 @@ VERY IMPORTANT: do NEVER give a list of movies as plain text. Always show them i
               }
             ]
           })
-          const movieCardsData = await getFullMovieData(movies)
+          const ItemCardsData = await getFullMovieData(movies)
           return (
             <BotCard>
               {introduction && <p className="mb-2">{introduction}</p>}
-              <MovieCard props={movieCardsData} />
+              <ItemCard props={ItemCardsData} />
             </BotCard>
           )
         }
@@ -492,7 +491,7 @@ export const getUIStateFromAIState = async (aiState: Chat) => {
           message.role === 'function' ? (
             message.name === 'showMovies' ? (
               <BotCard>
-                <MovieCard
+                <ItemCard
                   props={await getFullMovieData(JSON.parse(message.content))}
                 />
               </BotCard> /*: message.name === 'showMovieCast' ? (
@@ -523,7 +522,7 @@ export const getUIStateFromAIState = async (aiState: Chat) => {
 }
 
 async function getFullMovieData(llmmovies: BasicMovieInfo[]) {
-  const movieCardsDataPromises = llmmovies.map(async (m, n) => {
+  const ItemCardsDataPromises = llmmovies.map(async (m, n) => {
     let movie: Movie | null = await getMovieInfo(m.title, m.year) // findMovieByTitleAndYear(m.title, m.year)
 
     if (!movie) {
@@ -537,7 +536,7 @@ async function getFullMovieData(llmmovies: BasicMovieInfo[]) {
     }
   })
 
-  const movieCardsData = await Promise.all(movieCardsDataPromises)
+  const ItemCardsData = await Promise.all(ItemCardsDataPromises)
 
-  return movieCardsData
+  return ItemCardsData
 }
